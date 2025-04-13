@@ -1,0 +1,4 @@
+{
+  "llm_type": "openai",
+  "llm_model": "o3-mini"
+}
