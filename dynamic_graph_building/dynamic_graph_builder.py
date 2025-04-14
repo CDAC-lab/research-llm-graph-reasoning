@@ -81,6 +81,11 @@ class DynamicGraphBuilder:
         chain = prompt | llm_model.with_structured_output(schema=KnowledgeGraph)
         return chain
 
+    @staticmethod
+    def chunk_list(list_questions, list_dict_test, chunk_size):
+        for i in range(0, len(list_questions), chunk_size):
+            yield list_questions[i:i + chunk_size], list_dict_test[i:i + chunk_size]
+
     def execute(self):
         # Load dataset configs
         self.load_dataset_configs()
@@ -89,6 +94,7 @@ class DynamicGraphBuilder:
         # Load questions list
         list_dict_test, list_questions = self.load_questions_list()
         list_questions = list_questions[:10]  # Limit to 10 questions for testing
+        list_dict_test = list_dict_test[:10]  # Limit to 10 questions for testing
 
         # build the chain
         set_debug(False)
@@ -96,15 +102,29 @@ class DynamicGraphBuilder:
         set_llm_cache(InMemoryCache())
         chain = self.build_chain()
 
-        # Execute the chain
-        graphs_list = chain.batch(
-            list_questions,
-            config={
-                "max_concurrency": self.dataset_config["max_concurrency"]
-            }
-        )
-        del list_questions
-
-        # Save Knowledge Graphs
         knowledge_graph_utils = KnowledgeGraphUtils(self.dataset_name)
-        knowledge_graph_utils.save_llm_response_as_owl(graphs_list)
+
+        batch_num = 0
+        for questions_chunk, dicts_chunk in self.chunk_list(list_questions, list_dict_test, self.dataset_config['batch_size']):
+            # Execute the chain
+            # graphs_list = chain.batch(
+            #     questions_chunk,
+            #     config={
+            #         "max_concurrency": self.dataset_config["max_concurrency"]
+            #     }
+            # )
+
+            # Save Knowledge Graphs
+            # knowledge_graph_utils.save_llm_response_as_owl(graphs_list, batch_num)
+
+            # Query the knowledge graph
+            knowledge_graph_utils.query_knowledge_graph_batch(
+                dicts_chunk,
+                batch_num,
+                self.general_config['max_workers']
+            )
+
+            batch_num += 1
+
+        del list_questions
+        del list_dict_test

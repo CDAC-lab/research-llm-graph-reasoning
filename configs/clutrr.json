@@ -1,6 +1,7 @@
 {
   "dataset_path_in_hugging_face": "CLUTRR/v1",
   "dataset_name_in_hugging_face": "gen_train234_test2to10",
+  "batch_size": 50,
   "max_concurrency": 5,
   "relationships_list": [
     "has_aunt",
