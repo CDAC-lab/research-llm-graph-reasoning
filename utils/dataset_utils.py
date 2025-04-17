@@ -1,4 +1,6 @@
 import ast
+import pandas as pd
+
 
 class DatasetUtils:
 
@@ -25,3 +27,24 @@ class DatasetUtils:
         del df_test
 
         return list_dict_test, list_questions
+
+    @staticmethod
+    def pre_process_clutrr_chains_for_prompt(graph_df):
+        """
+        Pre-process the output of the knowledge graph extractor to prepare it for the final answer generator.
+        """
+        questions_dict_list = []
+
+        for index, row in graph_df.iterrows():
+            relation_chain = row["chain"]
+            parts = relation_chain.split("->")
+            first = parts[0].split("(")[0].strip()
+            last = parts[-1].strip()
+
+            questions_dict_list.append({
+                "relation_chain": relation_chain,
+                "first": first,
+                "last": last
+            })
+
+        return questions_dict_list

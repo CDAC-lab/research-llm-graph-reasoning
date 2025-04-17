@@ -25,3 +25,8 @@ class KnowledgeGraph(BaseModel):
     entity_classes: List[EntityEntry] = Field(
         description="Classes of each entity in the graph. An entity can have multiple classes."
     )
+
+class RelationshipResponse(BaseModel):
+    """Response from the LLM indicating the relationship between two entities"""
+    answer: str = Field(description="The relationship between the first person and the last person in the sequence of relationships, "
+                                    "in only one word.")

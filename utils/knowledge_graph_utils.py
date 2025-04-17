@@ -129,7 +129,7 @@ class KnowledgeGraphUtils:
             path_str = " -> ".join([f"{str(path[j]).split('#')[-1]} ({str(properties[j]).split('#')[-1]})" if j < len(
                 properties) else str(path[j]).split('#')[-1] for j in range(len(path))])
             rows.append({
-                "path": path_str,
+                "chain": path_str,
                 "query": query_tuple,
                 "target_text": question_dict['target_text'],
                 "num_hops": question_dict['num_hops'],
@@ -173,5 +173,6 @@ class KnowledgeGraphUtils:
             final_df = pd.concat(dataframes, ignore_index=True)
             final_df.to_csv(output_file, index=False)
             print(f"✅ Saved {len(final_df)} rows to {output_file}")
+            return output_file
         else:
             print("⚠️ No data collected.")
