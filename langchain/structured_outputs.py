@@ -28,5 +28,30 @@ class KnowledgeGraph(BaseModel):
 
 class RelationshipResponse(BaseModel):
     """Response from the LLM indicating the relationship between two entities"""
-    answer: str = Field(description="The relationship between the first person and the last person in the sequence of relationships, "
-                                    "in only one word.")
+    answer: str = Field(
+        description="A single word from the valid list that represents the relationship between the first and last person in the sequence."
+    )
+    reason: str = Field(
+        description="Step-by-step reasoning explaining how the answer was derived, showing the intermediate relationships from the first to last person using only valid terms."
+    )
+
+class RevisedResponse(BaseModel):
+    """Response from the LLM indicating the relationship between two entities"""
+    previous_reasoning_errors: str = Field(
+        description="Errors found in the previous reasoning steps."
+    )
+    revised_answer: str = Field(
+        description="A single word from the valid list that represents the relationship between the first and last person in the sequence."
+    )
+    reason: str = Field(
+        description="Step-by-step reasoning explaining how the answer was derived, showing the intermediate relationships from the first to last person using only valid terms."
+    )
+
+class ConventionalResponse(BaseModel):
+    """Response from the LLM indicating the relationship between two entities"""
+    answer: str = Field(
+        description="A single word answer"
+    )
+    reason: str = Field(
+        description="reasoning"
+    )

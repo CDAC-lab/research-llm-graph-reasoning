@@ -1,5 +1,5 @@
 {
   "llm_type": "openai",
-  "llm_model": "o3-mini",
+  "llm_model": "gpt-4o",
   "max_workers": 3
 }
