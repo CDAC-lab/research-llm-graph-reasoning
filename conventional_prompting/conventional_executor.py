@@ -8,6 +8,7 @@ from utils.general_utils import GeneralUtils
 from langchain_core.globals import set_debug, set_verbose, set_llm_cache
 from langchain_community.cache import InMemoryCache
 from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.output_parsers import StrOutputParser
 from langchain.models import get_llm
 from langchain.structured_outputs import ConventionalResponse
 
@@ -54,11 +55,16 @@ class ConventionalExecutor:
             question:
             {{question}}
             
-            First, create a knowledge graph by extracting facts from each sentence in the given input story. 
+            accepted relationships:
+            {",".join([f"'{rel_itm.replace('_', ' ')}'" for rel_itm in relationships_list])}
+            
+            First, create a knowledge graph by extracting facts from each sentence in the given input story. The relationships
+            between the entities in the knowledge graph should be taken from the accepted relationships list given above.
             Once this is done, I will pose a question. This question can be transformed into a triple (s, ?, o), where your primary task 
-            is to determine the missing relation (’?’) that links the subject entity (’s’) to the object entity (’o’). To begin, focus on 
-            the subject entity in this triple and choose the most relevant facts to expand from it. Step by step, progress towards the 
-            object entity, ensuring that each selected fact contributes to creating a link between the subject and object entities. 
+            is to determine the missing relation (’?’) that links the subject entity (’s’) to the object entity (’o’). 
+            The missing relation has to be selected from the given accepted relationships list. 
+            To begin, focus on the subject entity in this triple and choose the most relevant facts to expand from it. 
+            Step by step, progress towards the object entity, ensuring that each selected fact contributes to creating a link between the subject and object entities. 
             Finally, utilize the established connection between the subject and object entities to answer the question.
             """
         return prompt
@@ -76,7 +82,8 @@ class ConventionalExecutor:
             llm_model=self.general_config["llm_model"],
             api_key=self.openai_api_key
         )
-        chain = prompt | llm_model.with_structured_output(schema=ConventionalResponse)
+        # chain = prompt | llm_model.with_structured_output(schema=ConventionalResponse)
+        chain = prompt | llm_model | StrOutputParser()
         return chain
 
     def load_questions_list(self, is_debug, sample_question_indexes):

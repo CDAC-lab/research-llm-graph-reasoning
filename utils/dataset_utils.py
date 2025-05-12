@@ -133,7 +133,7 @@ class DatasetUtils:
 
             questions_dict_list.append({
                 "input_story": input_story,
-                "question": f"({query[-1]}, ?, {query[0]})"
+                "question": f"({query[0]}, ?, {query[-1]})"
             })
 
         return questions_dict_list

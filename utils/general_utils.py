@@ -32,12 +32,35 @@ class GeneralUtils:
         chain_df.to_csv(output_file_path, index=False)
         return output_file_path
 
+    # def save_conventional_answers_as_csv(self, conventional_answers_list, dicts_chunk, batch_num):
+    #     """
+    #     Save the final answers to a CSV file.
+    #     """
+    #     conventional_answers_list_str = [x.answer for x in conventional_answers_list]
+    #     reasons_list_str = [x.reason for x in conventional_answers_list]
+    #
+    #     for i in range(len(dicts_chunk)):
+    #         dicts_chunk[i]["question_num"] = i
+    #
+    #     dicts_chunk_df = pd.DataFrame(dicts_chunk)
+    #     output_file_path = f"./outputs/conventional_answers/{self.dataset_name}_conventional_answers_b{batch_num}.csv"
+    #     df = pd.DataFrame({
+    #         "answer": conventional_answers_list_str,
+    #         "reason": reasons_list_str
+    #     })
+    #     df["batch_num"] = batch_num
+    #     df["question_num"] = dicts_chunk_df["question_num"]
+    #     df["num_hops"] = dicts_chunk_df["num_hops"]
+    #     df["target_text"] = dicts_chunk_df["target_text"]
+    #     df["query"] = dicts_chunk_df["query"]
+    #     df.to_csv(output_file_path, index=False)
+    #     return output_file_path
+
     def save_conventional_answers_as_csv(self, conventional_answers_list, dicts_chunk, batch_num):
         """
         Save the final answers to a CSV file.
         """
-        conventional_answers_list_str = [x.answer for x in conventional_answers_list]
-        reasons_list_str = [x.reason for x in conventional_answers_list]
+        conventional_answers_list_str = [x for x in conventional_answers_list]
 
         for i in range(len(dicts_chunk)):
             dicts_chunk[i]["question_num"] = i
@@ -45,8 +68,7 @@ class GeneralUtils:
         dicts_chunk_df = pd.DataFrame(dicts_chunk)
         output_file_path = f"./outputs/conventional_answers/{self.dataset_name}_conventional_answers_b{batch_num}.csv"
         df = pd.DataFrame({
-            "answer": conventional_answers_list_str,
-            "reason": reasons_list_str
+            "answer": conventional_answers_list_str
         })
         df["batch_num"] = batch_num
         df["question_num"] = dicts_chunk_df["question_num"]
