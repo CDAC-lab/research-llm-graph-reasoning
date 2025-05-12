@@ -116,7 +116,7 @@ class DynamicGraphBuilder:
         prompt = None
         if dataset_name == 'clutrr':
             prompt = f"""
-            You are an expert in understanding family and social relationships. You are given:
+            You are an expert in understanding family relationships. You are given:
 
             1. A list of relationships between individuals in the form of (PersonA, Relationship, PersonB).
             2. A selected answer for the relationship ({{first_person}}, ?, {{last_person}}).
