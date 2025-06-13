@@ -327,8 +327,8 @@ class DynamicGraphBuilder:
         list_dict_test, list_questions = self.load_questions_list(
             is_debug=self.is_debug, sample_question_indexes=self.sample_question_indexes)
         print(f"len of list_questions :- {len(list_questions)}")
-        # list_questions = list_questions[:200]  # Limit to 10 questions for testing
-        # list_dict_test = list_dict_test[:200]  # Limit to 10 questions for testing
+        # list_questions = list_questions[:200]  # Limit questions for testing
+        # list_dict_test = list_dict_test[:200]  # Limit questions for testing
 
         # build the chain
         set_debug(False)
@@ -336,7 +336,7 @@ class DynamicGraphBuilder:
         set_llm_cache(InMemoryCache())
         knowledge_graph_str_extractor_chain = self.build_knowledge_graph_str_extractor_chain()
         pre_revised_answers_generator_chain = self.build_pre_revised_answers_generator_chain()
-        revised_answers_generator_chain = self.build_revised_answers_generator_chain()
+        # revised_answers_generator_chain = self.build_revised_answers_generator_chain()
 
         knowledge_graph_utils = KnowledgeGraphUtils(self.dataset_name)
         general_utils = GeneralUtils(self.dataset_name)
@@ -391,60 +391,60 @@ class DynamicGraphBuilder:
                 knowledge_graph_utils.save_llm_response_as_owl(graphs_list, batch_num)
                 del graphs_list
                 del graphs_str_list
-                #
-                # # Query the knowledge graph
-                # output_file_path = knowledge_graph_utils.query_knowledge_graph_batch(
-                #     dicts_chunk,
-                #     batch_num,
-                #     self.general_config['max_workers']
-                # )
-                #
-                # # Filter the shortest paths
-                # output_file_path = general_utils.filter_shortest_paths(batch_num)
-                #
-                # # Prepare the prompt for the final answer generator
-                # chain_df = pd.read_csv(output_file_path)
-                # pre_revised_answers_questions_list = DatasetUtils.pre_process_pre_revised_questions_for_prompt(chain_df)
-                # pre_revised_answers_list = pre_revised_answers_generator_chain.batch(
-                #     pre_revised_answers_questions_list,
+
+                # Query the knowledge graph
+                output_file_path = knowledge_graph_utils.query_knowledge_graph_batch(
+                    dicts_chunk,
+                    batch_num,
+                    self.general_config['max_workers']
+                )
+
+                # Filter the shortest paths
+                output_file_path = general_utils.filter_shortest_paths(batch_num)
+
+                # Prepare the prompt for the final answer generator
+                chain_df = pd.read_csv(output_file_path)
+                pre_revised_answers_questions_list = DatasetUtils.pre_process_pre_revised_questions_for_prompt(chain_df)
+                pre_revised_answers_list = pre_revised_answers_generator_chain.batch(
+                    pre_revised_answers_questions_list,
+                    config={
+                        "max_concurrency": self.dataset_config["max_concurrency"]
+                    }
+                )
+
+                # Save the final answers
+                pre_revised_answers_file = general_utils.save_pre_revised_answers_as_csv(
+                    pre_revised_answers_list,
+                    chain_df,
+                    batch_num
+                )
+                del pre_revised_answers_questions_list
+                del pre_revised_answers_list
+
+                # # Generate revised answers
+                # # pre_revised_answers_file = f"./outputs/pre_revised_answers/{self.dataset_name}_pre_revised_answers_b{batch_num}.csv"  # TODO: delete this. Used for testing
+                # chain_df = pd.read_csv(pre_revised_answers_file)
+                # revised_answers_questions_list = DatasetUtils.pre_process_revised_questions_for_prompt(chain_df)
+                # revised_answers_list = revised_answers_generator_chain.batch(
+                #     revised_answers_questions_list,
                 #     config={
                 #         "max_concurrency": self.dataset_config["max_concurrency"]
                 #     }
                 # )
                 #
-                # # Save the final answers
-                # pre_revised_answers_file = general_utils.save_pre_revised_answers_as_csv(
-                #     pre_revised_answers_list,
+                # general_utils.save_revised_answers_as_csv(
+                #     revised_answers_list,
                 #     chain_df,
                 #     batch_num
                 # )
-                # del pre_revised_answers_questions_list
-                # del pre_revised_answers_list
-                #
-                # # # Generate revised answers
-                # # # pre_revised_answers_file = f"./outputs/pre_revised_answers/{self.dataset_name}_pre_revised_answers_b{batch_num}.csv"  # TODO: delete this
-                # # chain_df = pd.read_csv(pre_revised_answers_file)
-                # # revised_answers_questions_list = DatasetUtils.pre_process_revised_questions_for_prompt(chain_df)
-                # # revised_answers_list = revised_answers_generator_chain.batch(
-                # #     revised_answers_questions_list,
-                # #     config={
-                # #         "max_concurrency": self.dataset_config["max_concurrency"]
-                # #     }
-                # # )
-                # #
-                # # general_utils.save_revised_answers_as_csv(
-                # #     revised_answers_list,
-                # #     chain_df,
-                # #     batch_num
-                # # )
-                #
-                # print(f"finished processing batch {batch_num} successfully !")
+
+                print(f"finished processing batch {batch_num} successfully !")
                 batch_num += 1
-                #
-                # # Cleanup
-                # del chain_df
-                # # del revised_answers_questions_list
-                # # del revised_answers_list
+
+                # Cleanup
+                del chain_df
+                # del revised_answers_questions_list
+                # del revised_answers_list
 
         del list_questions
         del list_dict_test
