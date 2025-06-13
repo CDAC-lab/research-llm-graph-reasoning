@@ -1,7 +1,9 @@
 from rdflib import Graph, Namespace, RDF, RDFS, OWL, URIRef
 from concurrent.futures import ThreadPoolExecutor
+from langchain.structured_outputs import KnowledgeGraph, GraphEntry
 import pandas as pd
 import os
+import re
 import ast
 
 class KnowledgeGraphUtils:
@@ -58,9 +60,9 @@ class KnowledgeGraphUtils:
             namespace = f"http://www.semanticweb.org/sudheera/{self.dataset_name}/2025/2/{ontology_name}"
 
             # Add individuals and relationships to the graph
-            for entity in graph.entity_classes:
-                # for entity in test_entity_classes:
-                self.add_individuals(g, {entity.entity: entity.classes}, namespace)
+            # for entity in graph.entity_classes:
+            #     # for entity in test_entity_classes:
+            #     self.add_individuals(g, {entity.entity: entity.classes}, namespace)
 
             for relationship in graph.graph:
                 # for relationship in test_graph:
@@ -176,3 +178,54 @@ class KnowledgeGraphUtils:
             return output_file
         else:
             print("⚠️ No data collected.")
+
+    @staticmethod
+    def sanitize_entity_name(name: str) -> str:
+        """
+        Sanitize entity names to make them valid for URIs.
+
+        Args:
+            name: The entity name to sanitize
+
+        Returns:
+            Sanitized entity name
+        """
+        # Replace apostrophes with empty string
+        name = name.replace("'s", "s")
+        name = name.replace("'", "")
+
+        # Replace spaces with underscores
+        name = name.replace(" ", "_")
+
+        # Remove any other problematic characters
+        name = re.sub(r'[^\w\-_]', '', name)
+
+        return name
+
+    @staticmethod
+    def extract_triples_from_llm_str_output(text: str) -> KnowledgeGraph:
+        # 1) Split off everything before "### TRIPLES_START"
+        if "### TRIPLES_START" in text:
+            _, triples_part = text.split("### TRIPLES_START", 1)
+        else:
+            # fallback: run on entire text
+            triples_part = text
+
+        # 2) Only run the regex on triples_part
+        triple_pattern = r'^\(\s*([A-Za-z]+)\s*,\s*([a-z_]+)\s*,\s*([A-Za-z]+)\s*\)$'
+        graph_entries = []
+        for line in triples_part.splitlines():
+            line = line.strip()
+            m = re.match(triple_pattern, line)
+            if not m:
+                continue
+            e1, rel, e2 = m.groups()
+            graph_entries.append(
+                GraphEntry(
+                    entity_1=KnowledgeGraphUtils.sanitize_entity_name(e1),
+                    entity_2=KnowledgeGraphUtils.sanitize_entity_name(e2),
+                    edge=KnowledgeGraphUtils.sanitize_entity_name(rel)
+                )
+            )
+
+        return KnowledgeGraph(graph=graph_entries)

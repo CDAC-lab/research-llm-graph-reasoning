@@ -23,9 +23,7 @@
     "has_husband",
     "has_wife",
     "has_nephew",
-    "has_niece",
-    "has_number_of_children",
-    "has_number_of_siblings"
+    "has_niece"
   ],
   "entity_classes_list": [
     "Aunt",

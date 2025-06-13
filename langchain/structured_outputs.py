@@ -22,9 +22,9 @@ class KnowledgeGraph(BaseModel):
                     "Each entry should define a relationship with 'entity_1', 'entity_2', and 'edge'."
     )
 
-    entity_classes: List[EntityEntry] = Field(
-        description="Classes of each entity in the graph. An entity can have multiple classes."
-    )
+    # entity_classes: List[EntityEntry] = Field(
+    #     description="Classes of each entity in the graph. An entity can have multiple classes."
+    # )
 
 class RelationshipResponse(BaseModel):
     """Response from the LLM indicating the relationship between two entities"""
@@ -53,5 +53,5 @@ class ConventionalResponse(BaseModel):
         description="A single word answer"
     )
     reason: str = Field(
-        description="reasoning"
+        description="Your reasoning for the answer according to the given prompt"
     )

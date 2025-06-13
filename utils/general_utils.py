@@ -60,7 +60,8 @@ class GeneralUtils:
         """
         Save the final answers to a CSV file.
         """
-        conventional_answers_list_str = [x for x in conventional_answers_list]
+        # conventional_answers_list_str = [x for x in conventional_answers_list]
+        conventional_answers_list_str = [x.answer for x in conventional_answers_list]
 
         for i in range(len(dicts_chunk)):
             dicts_chunk[i]["question_num"] = i

@@ -82,8 +82,8 @@ class ConventionalExecutor:
             llm_model=self.general_config["llm_model"],
             api_key=self.openai_api_key
         )
-        # chain = prompt | llm_model.with_structured_output(schema=ConventionalResponse)
-        chain = prompt | llm_model | StrOutputParser()
+        chain = prompt | llm_model.with_structured_output(schema=ConventionalResponse)
+        # chain = prompt | llm_model | StrOutputParser()
         return chain
 
     def load_questions_list(self, is_debug, sample_question_indexes):
