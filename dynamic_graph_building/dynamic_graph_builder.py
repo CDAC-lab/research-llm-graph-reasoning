@@ -271,15 +271,20 @@ class DynamicGraphBuilder:
             ("human", "{statement}"),
         ])
 
-        llm_model = get_llm(
-            llm_type=self.general_config["llm_type"],
-            llm_model=self.general_config["llm_model"],
-            api_key=self.openai_api_key
-        )
-        # chain = prompt | llm_model.with_structured_output(schema=KnowledgeGraph)
         if self.general_config["llm_type"] != "ollama":
+            llm_model = get_llm(
+                llm_type=self.general_config["llm_type"],
+                llm_model=self.general_config["llm_model"]
+            )
             chain = prompt | llm_model | StrOutputParser()
+
         else:
+            llm_model = get_llm(
+                llm_type=self.general_config["llm_type"],
+                llm_model=self.general_config["llm_model"],
+                api_key=self.openai_api_key
+            )
+            # chain = prompt | llm_model.with_structured_output(schema=KnowledgeGraph)
             chain = llm_model
         return chain
 

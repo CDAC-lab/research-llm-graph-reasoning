@@ -7,7 +7,7 @@ from pydantic import SecretStr
 
 def get_llm(llm_type: Literal["llama3", "openai"],
             llm_model: str,
-            api_key: str|SecretStr,
+            api_key: str|SecretStr = None,
             temperature: int = 0):
     if llm_type == "llama3":
         return ChatGroq(temperature=temperature, model=llm_model, api_key=api_key)
