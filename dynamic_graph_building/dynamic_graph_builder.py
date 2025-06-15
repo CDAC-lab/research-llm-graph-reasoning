@@ -60,7 +60,7 @@ class DynamicGraphBuilder:
             return list_dict_test, list_questions
 
 
-    def build_knowledge_graph_str_extractor_chain(self):
+    def build_knowledge_graph_str_extractor_chain(self, llm_model):
         # prompt = ChatPromptTemplate.from_template(
         #     Prompts.get_graph_prompt(
         #         self.dataset_name,
@@ -73,45 +73,28 @@ class DynamicGraphBuilder:
             )
         )
 
-        if self.general_config["llm_type"] != "ollama":
-            llm_model = get_llm(
-                llm_type=self.general_config["llm_type"],
-                llm_model=self.general_config["llm_model"]
-            )
-            chain = prompt | llm_model | StrOutputParser()
-
-        else:
-            llm_model = get_llm(
-                llm_type=self.general_config["llm_type"],
-                llm_model=self.general_config["llm_model"],
-                api_key=self.openai_api_key
-            )
-            # chain = prompt | llm_model.with_structured_output(schema=KnowledgeGraph)
-            chain = prompt | llm_model | StrOutputParser()
+        chain = prompt | llm_model | StrOutputParser()
         return chain
 
-    def build_pre_revised_answers_generator_chain(self):
+    def build_pre_revised_answers_generator_chain(self, llm_model):
         prompt = ChatPromptTemplate(
             Prompts.get_relationship_prompt(
                 self.dataset_name,
                 self.dataset_config["entity_classes_list"],
             )
         )
+
         chain = prompt | llm_model | StrOutputParser()
         return chain
 
-    def build_revised_answers_generator_chain(self):
+    def build_revised_answers_generator_chain(self, llm_model):
         prompt = ChatPromptTemplate.from_template(
             Prompts.get_revision_prompt(
                 self.dataset_name,
                 self.dataset_config["entity_classes_list"],
             )
         )
-        llm_model = get_llm(
-            llm_type=self.general_config["llm_type"],
-            llm_model=self.general_config["llm_model"],
-            api_key=self.openai_api_key
-        )
+
         chain = prompt | llm_model.with_structured_output(schema=RevisedResponse)
         return chain
 
@@ -136,9 +119,23 @@ class DynamicGraphBuilder:
         set_debug(False)
         set_verbose(False)
         set_llm_cache(InMemoryCache())
-        knowledge_graph_str_extractor_chain = self.build_knowledge_graph_str_extractor_chain()
-        pre_revised_answers_generator_chain = self.build_pre_revised_answers_generator_chain()
-        # revised_answers_generator_chain = self.build_revised_answers_generator_chain()
+
+        if self.general_config["llm_type"] != "ollama":
+            llm_model = get_llm(
+                llm_type=self.general_config["llm_type"],
+                llm_model=self.general_config["llm_model"]
+            )
+
+        else:
+            llm_model = get_llm(
+                llm_type=self.general_config["llm_type"],
+                llm_model=self.general_config["llm_model"],
+                api_key=self.openai_api_key
+            )
+
+        knowledge_graph_str_extractor_chain = self.build_knowledge_graph_str_extractor_chain(llm_model)
+        pre_revised_answers_generator_chain = self.build_pre_revised_answers_generator_chain(llm_model)
+        # revised_answers_generator_chain = self.build_revised_answers_generator_chain(llm_model)
 
         knowledge_graph_utils = KnowledgeGraphUtils(self.dataset_name)
         general_utils = GeneralUtils(self.dataset_name)
