@@ -10,8 +10,35 @@ class GeneralUtils:
         """
         Save the final answers to a CSV file.
         """
-        final_answers_list_str = [x.answer for x in pre_revised_answers_list]
-        reasons_list_str = [x.reason for x in pre_revised_answers_list]
+
+        final_answers_list_str = []
+        reasons_list_str = []
+
+        for i in range(len(pre_revised_answers_list)):
+            text = pre_revised_answers_list[i]
+            # print("-------------------------------------------------------------------------------------------")
+            # print(f"processing pre-revised answer {i + 1}/{len(pre_revised_answers_list)} of batch {batch_num}")
+            # print(pre_revised_answers_list[i])
+
+            try:
+                reason, final_answer = text.split("### FINAL ANSWER", 1)  # your requested logic
+            except ValueError:
+                raise ValueError("Marker '### FINAL ANSWER' not found in text.")
+
+            # Trim leading/trailing whitespace that might precede the answer
+            final_answer = final_answer.strip()
+            reason = reason.strip()
+
+            # The answer is the first non-empty line
+            for line in final_answer.splitlines():
+                word = line.strip()
+                if word:  # ignore blank lines
+                    final_answers_list_str.append(word.split()[0])
+                    reasons_list_str.append(reason)
+                    break
+            else:
+                raise ValueError("No answer found after the marker.")
+
         chain_df["final_answer"] = final_answers_list_str
         chain_df["reason"] = reasons_list_str
         output_file_path = f"./outputs/pre_revised_answers/{self.dataset_name}_pre_revised_answers_b{batch_num}.csv"

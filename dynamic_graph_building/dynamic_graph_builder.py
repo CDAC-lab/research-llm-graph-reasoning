@@ -77,36 +77,65 @@ class DynamicGraphBuilder:
         """Generates a prompt for the LLM to create a knowledge graph."""
         prompt = None
         if dataset_name == 'clutrr':
-            prompt = f"""
-            You are an expert in understanding family and social relationships. You are given:
-
-            1. A list of relationships between individuals in the form of (PersonA, Relationship, PersonB).
-            2. A predefined list of valid relationship types. 
+            prompt = [
+                ("system", f"""
+            <system>
+              <role>
+                You are an expert in understanding family and social relationships.
+                Your goal is to analyze a chain of known relationships and deduce the
+                single direct relationship that links the first person to the last person.
+              </role>
             
-            Your task is to determine the relationship ({{first_person}}, ?, {{last_person}}), such that:
-            **“{{last_person}} is the {{first_person}}'s ____.”**
+              <behavior>
+                <rule name="Valid-terms-only">
+                  The predefined list of valid relationship types (case-insensitive) is
+                  authoritative. Every intermediate and final label you produce MUST come
+                  from that list. Never invent synonyms or new terms.
+                </rule>
             
-            Follow these steps:
+                <rule name="Sequential-traversal">
+                  Read the input sequence in order. After each hop, update the currently
+                  known relationship between {{first_person}} and the interim target.
+                  Record this evolution openly in your reasoning.
+                </rule>
             
-            2. Go through the predefined list of valid relationship types and grasp the meaning of each term. Consider this list as a case-insensitive list of relationship terms.
-            3. Traverse the list of relationships step-by-step. At each step, explain how the relationship between {{first_person}} and the current person evolves.
-            4. Use only terms from the valid list to describe each intermediate and final relationship. **Do not infer social roles or make assumptions that are not strictly derived from the relationship sequence.**
-            5. Provide your final answer in one word, **strictly** from the valid list, and ensure it is logically consistent with your reasoning steps.
-            6. **Do not reinterpret or relabel the final relationship. The final answer must match exactly the relationship logically derived in the final step.** Do not apply social or cultural heuristics like “sibling of a grandson is niece.” If your final reasoning says “granddaughter,” your answer must be exactly “granddaughter.”
+                <rule name="No-social-heuristics">
+                  Do NOT apply cultural shortcuts (e.g., “sibling of a grandson is niece”)
+                  or infer roles absent from the explicit chain. Derive every step purely
+                  from the provided relationships and valid terms.
+                </rule>
             
-            Valid answers:
+                <rule name="Single-word-answer">
+                  Your final answer must be exactly one term—spelled as it appears in the
+                  valid list—that best describes how {{last_person}} relates to
+                  {{first_person}}. Do not add qualifiers or punctuation.
+                </rule>
+              </behavior>
+            
+              <format>
+                1. Produce a detailed, step-by-step reasoning section that:
+                   • cites each hop in the input chain,
+                   • states the intermediate relationship using ONLY valid terms,
+                   • shows how the relationship evolves until {{last_person}}.
+                2. Then print this heading on its own line (exactly as written):
+                   ### FINAL ANSWER
+                3. On the very next line, output ONLY the single-word answer from the
+                   valid list—no quotes, no extra text.
+                4. End without adding anything after that word.
+              </format>
+            </system>
+            """),
+                ("human", f"""
+            Valid relationship terms (case-insensitive):
             {entity_classes_list}
             
             Input sequence:
             {{relation_str}}
             
-            Return your response as a JSON object in the following format:
-            
-            ```json keys :- 
-              "reason": ""<step-by-step reasoning using only valid relationship terms>",
-              "answer": "<single-word answer from valid list>"
-            ```
-            """
+            → What is the relationship from **{{first_person}}** to **{{last_person}}**?
+            (Remember to follow the output format.)"""
+                 )
+            ]
 
         return prompt
 
@@ -285,11 +314,11 @@ class DynamicGraphBuilder:
                 api_key=self.openai_api_key
             )
             # chain = prompt | llm_model.with_structured_output(schema=KnowledgeGraph)
-            chain = llm_model
+            chain = prompt | llm_model | StrOutputParser()
         return chain
 
     def build_pre_revised_answers_generator_chain(self):
-        prompt = ChatPromptTemplate.from_template(
+        prompt = ChatPromptTemplate(
             self.get_relationship_prompt(
                 self.dataset_name,
                 self.dataset_config['entity_classes_list']
@@ -300,7 +329,7 @@ class DynamicGraphBuilder:
             llm_model=self.general_config["llm_model"],
             api_key=self.openai_api_key
         )
-        chain = prompt | llm_model.with_structured_output(schema=RelationshipResponse)
+        chain = prompt | llm_model | StrOutputParser()
         return chain
 
     def build_revised_answers_generator_chain(self):
@@ -360,49 +389,49 @@ class DynamicGraphBuilder:
             else:
                 print(f"started processing batch {batch_num} with {len(questions_chunk)} questions ... ")
 
-                graphs_list = []
-
-                if self.general_config["llm_type"] == "ollama":
-                    messages = [
-                        ("system", ("You are an expert in relationship triple construction regarding families and "
-                                    "relationships as (person_A, relationship, person_B). You have to create "
-                                    "relationship triples extracting all facts from the user's statement. \n\n"
-                                    f"The relationships in the graph has to be in this list : {str(self.dataset_config['relationships_list'])} \n\n"
-                                    f"Infer the inverse relationships and add them to the response as well.")),
-                        ("human", questions_chunk[0]["statement"]),
-                    ]
-                    graph_str = knowledge_graph_str_extractor_chain.invoke(
-                        messages
-                    )
-                    graph_str = graph_str.content
-                    print(f"Graph: {graph_str}")
-                    graphs_list.append(KnowledgeGraphUtils.extract_triples_from_llm_str_output(graph_str))
-                    print("-----------------------------------------------------")
-
-                else:
-                    graphs_str_list = knowledge_graph_str_extractor_chain.batch(
-                        questions_chunk,
-                        config={
-                            "max_concurrency": self.dataset_config["max_concurrency"]
-                        }
-                    )
-
-                    for graph_str in graphs_str_list:
-                        print(f"Graph: {graph_str}")
-                        graphs_list.append(KnowledgeGraphUtils.extract_triples_from_llm_str_output(graph_str))
-                        print("-----------------------------------------------------")
-
-                # Save Knowledge Graphs
-                knowledge_graph_utils.save_llm_response_as_owl(graphs_list, batch_num)
-                del graphs_list
-                del graphs_str_list
-
-                # Query the knowledge graph
-                output_file_path = knowledge_graph_utils.query_knowledge_graph_batch(
-                    dicts_chunk,
-                    batch_num,
-                    self.general_config['max_workers']
-                )
+                # graphs_list = []
+                #
+                # if self.general_config["llm_type"] == "ollama":
+                #     messages = [
+                #         ("system", ("You are an expert in relationship triple construction regarding families and "
+                #                     "relationships as (person_A, relationship, person_B). You have to create "
+                #                     "relationship triples extracting all facts from the user's statement. \n\n"
+                #                     f"The relationships in the graph has to be in this list : {str(self.dataset_config['relationships_list'])} \n\n"
+                #                     f"Infer the inverse relationships and add them to the response as well.")),
+                #         ("human", questions_chunk[0]["statement"]),
+                #     ]
+                #     graph_str = knowledge_graph_str_extractor_chain.invoke(
+                #         messages
+                #     )
+                #     graph_str = graph_str.content
+                #     print(f"Graph: {graph_str}")
+                #     graphs_list.append(KnowledgeGraphUtils.extract_triples_from_llm_str_output(graph_str))
+                #     print("-----------------------------------------------------")
+                #
+                # else:
+                #     graphs_str_list = knowledge_graph_str_extractor_chain.batch(
+                #         questions_chunk,
+                #         config={
+                #             "max_concurrency": self.dataset_config["max_concurrency"]
+                #         }
+                #     )
+                #
+                #     for graph_str in graphs_str_list:
+                #         print(f"Graph: {graph_str}")
+                #         graphs_list.append(KnowledgeGraphUtils.extract_triples_from_llm_str_output(graph_str))
+                #         print("-----------------------------------------------------")
+                #
+                # # Save Knowledge Graphs
+                # knowledge_graph_utils.save_llm_response_as_owl(graphs_list, batch_num)
+                # del graphs_list
+                # del graphs_str_list
+                #
+                # # Query the knowledge graph
+                # output_file_path = knowledge_graph_utils.query_knowledge_graph_batch(
+                #     dicts_chunk,
+                #     batch_num,
+                #     self.general_config['max_workers']
+                # )
 
                 # Filter the shortest paths
                 output_file_path = general_utils.filter_shortest_paths(batch_num)
