@@ -23,12 +23,12 @@ class Prompts:
     @staticmethod
     def _load_string_prompt(dataset: str, task: str) -> str:
         path = Prompts._latest_version_file(dataset, task)
-        return path.read_text()
+        return path.read_text(encoding="utf-8")
 
     @staticmethod
     def _load_messages_prompt(dataset: str, task: str) -> List[Tuple[str, str]]:
         path = Prompts._latest_version_file(dataset, task)
-        content = path.read_text()
+        content = path.read_text(encoding="utf-8")
         if "---human---" not in content:
             raise ValueError(f"Prompt file {path} missing '---human---' delimiter")
         system_part, human_part = content.split("---human---", 1)
@@ -42,12 +42,13 @@ class Prompts:
         return template.format(relationships_list=relationships_list)
 
     @staticmethod
-    def get_relationship_prompt(
+    def get_final_answer_prompt(
         dataset_name: str, entity_classes_list
     ) -> List[Tuple[str, str]]:
         messages = Prompts._load_messages_prompt(dataset_name, "final_answer")
         system_msg = messages[0][1].format(entity_classes_list=entity_classes_list)
-        return [("system", system_msg), messages[1]]
+        human_msg = messages[1][1].format(entity_classes_list=entity_classes_list)
+        return [("system", system_msg), ("human", human_msg)]
 
     @staticmethod
     def get_revision_prompt(dataset_name: str, entity_classes_list) -> str:
@@ -55,7 +56,7 @@ class Prompts:
         return template.format(entity_classes_list=entity_classes_list)
 
     @staticmethod
-    def get_extraction_prompt(relationships_list) -> List[Tuple[str, str]]:
+    def get_triple_extraction_prompt(relationships_list) -> List[Tuple[str, str]]:
         # extraction prompts are only dataset specific to 'clutrr'
         dataset_name = "clutrr"
         messages = Prompts._load_messages_prompt(dataset_name, "triple_extraction")

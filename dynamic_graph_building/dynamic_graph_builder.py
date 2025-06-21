@@ -68,7 +68,7 @@ class DynamicGraphBuilder:
         #     )
         # )
         prompt = ChatPromptTemplate(
-            Prompts.get_extraction_prompt(
+            Prompts.get_triple_extraction_prompt(
                 self.dataset_config["relationships_list"]
             )
         )
@@ -78,7 +78,7 @@ class DynamicGraphBuilder:
 
     def build_pre_revised_answers_generator_chain(self, llm_model):
         prompt = ChatPromptTemplate(
-            Prompts.get_relationship_prompt(
+            Prompts.get_final_answer_prompt(
                 self.dataset_name,
                 self.dataset_config["entity_classes_list"],
             )
@@ -154,49 +154,49 @@ class DynamicGraphBuilder:
             else:
                 print(f"started processing batch {batch_num} with {len(questions_chunk)} questions ... ")
 
-                # graphs_list = []
-                #
-                # if self.general_config["llm_type"] == "ollama":
-                #     messages = [
-                #         ("system", ("You are an expert in relationship triple construction regarding families and "
-                #                     "relationships as (person_A, relationship, person_B). You have to create "
-                #                     "relationship triples extracting all facts from the user's statement. \n\n"
-                #                     f"The relationships in the graph has to be in this list : {str(self.dataset_config['relationships_list'])} \n\n"
-                #                     f"Infer the inverse relationships and add them to the response as well.")),
-                #         ("human", questions_chunk[0]["statement"]),
-                #     ]
-                #     graph_str = knowledge_graph_str_extractor_chain.invoke(
-                #         messages
-                #     )
-                #     graph_str = graph_str.content
-                #     print(f"Graph: {graph_str}")
-                #     graphs_list.append(KnowledgeGraphUtils.extract_triples_from_llm_str_output(graph_str))
-                #     print("-----------------------------------------------------")
-                #
-                # else:
-                #     graphs_str_list = knowledge_graph_str_extractor_chain.batch(
-                #         questions_chunk,
-                #         config={
-                #             "max_concurrency": self.dataset_config["max_concurrency"]
-                #         }
-                #     )
-                #
-                #     for graph_str in graphs_str_list:
-                #         print(f"Graph: {graph_str}")
-                #         graphs_list.append(KnowledgeGraphUtils.extract_triples_from_llm_str_output(graph_str))
-                #         print("-----------------------------------------------------")
-                #
-                # # Save Knowledge Graphs
-                # knowledge_graph_utils.save_llm_response_as_owl(graphs_list, batch_num)
-                # del graphs_list
-                # del graphs_str_list
-                #
-                # # Query the knowledge graph
-                # output_file_path = knowledge_graph_utils.query_knowledge_graph_batch(
-                #     dicts_chunk,
-                #     batch_num,
-                #     self.general_config['max_workers']
-                # )
+                graphs_list = []
+
+                if self.general_config["llm_type"] == "ollama":
+                    messages = [
+                        ("system", ("You are an expert in relationship triple construction regarding families and "
+                                    "relationships as (person_A, relationship, person_B). You have to create "
+                                    "relationship triples extracting all facts from the user's statement. \n\n"
+                                    f"The relationships in the graph has to be in this list : {str(self.dataset_config['relationships_list'])} \n\n"
+                                    f"Infer the inverse relationships and add them to the response as well.")),
+                        ("human", questions_chunk[0]["statement"]),
+                    ]
+                    graph_str = knowledge_graph_str_extractor_chain.invoke(
+                        messages
+                    )
+                    graph_str = graph_str.content
+                    print(f"Graph: {graph_str}")
+                    graphs_list.append(KnowledgeGraphUtils.extract_triples_from_llm_str_output(graph_str))
+                    print("-----------------------------------------------------")
+
+                else:
+                    graphs_str_list = knowledge_graph_str_extractor_chain.batch(
+                        questions_chunk,
+                        config={
+                            "max_concurrency": self.dataset_config["max_concurrency"]
+                        }
+                    )
+
+                    # for graph_str in graphs_str_list:
+                    #     print(f"Graph: {graph_str}")
+                    #     graphs_list.append(KnowledgeGraphUtils.extract_triples_from_llm_str_output(graph_str))
+                    #     print("-----------------------------------------------------")
+
+                # Save Knowledge Graphs
+                knowledge_graph_utils.save_llm_response_as_owl(graphs_list, batch_num)
+                del graphs_list
+                del graphs_str_list
+
+                # Query the knowledge graph
+                output_file_path = knowledge_graph_utils.query_knowledge_graph_batch(
+                    dicts_chunk,
+                    batch_num,
+                    self.general_config['max_workers']
+                )
 
                 # Filter the shortest paths
                 output_file_path = general_utils.filter_shortest_paths(batch_num)
