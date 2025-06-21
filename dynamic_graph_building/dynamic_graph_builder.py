@@ -69,6 +69,7 @@ class DynamicGraphBuilder:
         # )
         prompt = ChatPromptTemplate(
             Prompts.get_triple_extraction_prompt(
+                self.general_config["llm_model"],
                 self.dataset_config["relationships_list"]
             )
         )
@@ -80,6 +81,7 @@ class DynamicGraphBuilder:
         prompt = ChatPromptTemplate(
             Prompts.get_final_answer_prompt(
                 self.dataset_name,
+                self.general_config["llm_model"],
                 self.dataset_config["entity_classes_list"],
             )
         )
@@ -91,6 +93,7 @@ class DynamicGraphBuilder:
         prompt = ChatPromptTemplate.from_template(
             Prompts.get_revision_prompt(
                 self.dataset_name,
+                self.general_config["llm_model"],
                 self.dataset_config["entity_classes_list"],
             )
         )
