@@ -1,0 +1,10 @@
+{
+  "PROMPT_DIR": "../langchain/prompt_library",
+  "SEED_PROMPT_FILE": "../prompt_enhancement/{dataset}/{task}/seed_prompt.txt",
+  "GROUND_TRUTH_FILE": "../prompt_enhancement/{dataset}/{task}/ground_truth.csv",
+  "MAX_LOOPS": 10,
+  "SAMPLE_SIZE": 5,
+  "ACCURACY_DIR": "../prompt_enhancement/{dataset}/{task}/accuracies",
+  "CORRECTION_TEMPLATE_FILE": "../prompt_enhancement/{dataset}/{task}/correction_template.txt",
+  "OPENAI_MODEL": "gpt-4.1"
+}

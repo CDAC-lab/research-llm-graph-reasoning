@@ -184,10 +184,10 @@ class DynamicGraphBuilder:
                         }
                     )
 
-                    # for graph_str in graphs_str_list:
-                    #     print(f"Graph: {graph_str}")
-                    #     graphs_list.append(KnowledgeGraphUtils.extract_triples_from_llm_str_output(graph_str))
-                    #     print("-----------------------------------------------------")
+                    for graph_str in graphs_str_list:
+                        # print(f"Graph: {graph_str}")
+                        graphs_list.append(KnowledgeGraphUtils.extract_triples_from_llm_str_output(graph_str))
+                        # print("-----------------------------------------------------")
 
                 # Save Knowledge Graphs
                 knowledge_graph_utils.save_llm_response_as_owl(graphs_list, batch_num)
