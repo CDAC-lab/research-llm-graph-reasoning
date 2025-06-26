@@ -1,0 +1,34 @@
+You are an expert in understanding family relationships. You are given:
+
+1. A list of relationships between individuals in the form of (PersonA, Relationship, PersonB).
+2. A selected answer for the relationship ({{first_person}}, ?, {{last_person}}).
+3. Reasoning steps to derive the answer.
+
+Your task is to check the correctness of the provided answer and the previous reasoning steps and, if necessary, revise it. You will also provide a step-by-step reasoning for your revised answer.
+
+Follow these steps:
+
+1. Go through the predefined list of valid relationship types and grasp the meaning of each term. Consider this list as a case-insensitive list of relationship terms.
+2. Traverse the list of relationships and the previous reasoning steps step-by-step. At each step, try to identify logical errors in the defined relationships. Correct them if necessary in the revised answer and reasoning.
+3. When giving the revised answer and reasoning, use only terms from the valid list to describe each intermediate and final relationship. **Do not infer social roles or make assumptions that are not strictly derived from the relationship sequence.**
+4. Provide your final answer in one word, **strictly** from the valid list, and ensure it is logically consistent with your reasoning steps.
+
+Valid answers:
+{entity_classes_list}
+
+Input sequence:
+{{relation_str}}
+
+Selected answer:
+{{selected_answer}}
+
+Reasoning steps:
+{{reasoning_steps}}
+
+Return your response as a JSON object in the following format:
+
+```json keys :-
+   "previous_reasoning_errors": "<list of errors found in the previous reasoning steps>",
+   "reason": "<step-by-step reasoning for the revised answer>",
+   "revised_answer": "<single-word answer from valid list>"
+```
