@@ -1,3 +1,4 @@
+import logging
 import os
 import re
 from dotenv import load_dotenv
@@ -9,7 +10,7 @@ from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.globals import set_debug, set_verbose, set_llm_cache
 from langchain_community.cache import InMemoryCache
-import xml.etree.ElementTree as ET
+from pathlib import Path
 
 from langchain.models import get_llm
 from utils.prompt_utils import PromptUtils
@@ -19,7 +20,20 @@ from utils.knowledge_graph_utils import KnowledgeGraphUtils
 
 def extract_triples_from_kg_obj(kg):
     """Extract list of (entity_1, edge, entity_2) triples from a KnowledgeGraph object"""
-    return [(entry.entity_1.strip().lower(), entry.edge.strip().lower().replace('_', ' '), entry.entity_2.strip().lower()) for entry in kg.graph]
+    return [
+        (entry.entity_1.strip().lower(), entry.edge.strip().lower().replace('_', ' '), entry.entity_2.strip().lower())
+        for entry in kg.graph]
+
+
+def calculate_accuracy_of_one_pair(pred_kg, gt_kg):
+    pred_triples = set(extract_triples_from_kg_obj(pred_kg))
+    gt_kg = [(item[0].strip().lower(), item[1].strip().lower(), item[2].strip().lower()) for item in gt_kg]
+    gt_triples = set(gt_kg)
+    if gt_triples.issubset(pred_triples):
+        return 1
+    else:
+        return 0
+
 
 def calculate_accuracy(predictions, ground_truths):
     """
@@ -31,21 +45,21 @@ def calculate_accuracy(predictions, ground_truths):
     correct = 0
     total = len(ground_truths)
     for pred_kg, gt_kg in zip(predictions, ground_truths):
-        pred_triples = set(extract_triples_from_kg_obj(pred_kg))
-        gt_kg = [(item[0].strip().lower(), item[1].strip().lower(), item[2].strip().lower()) for item in gt_kg]
-        print(f"Predicted triples: {pred_triples}")
-        print(f"Ground truth triples: {gt_kg}")
-        gt_triples = set(gt_kg)
-        if gt_triples.issubset(pred_triples):
+        # pred_triples = set(extract_triples_from_kg_obj(pred_kg))
+        # gt_kg = [(item[0].strip().lower(), item[1].strip().lower(), item[2].strip().lower()) for item in gt_kg]
+        # gt_triples = set(gt_kg)
+        # if gt_triples.issubset(pred_triples):
+        #     correct += 1
+        if calculate_accuracy_of_one_pair(pred_kg, gt_kg) == 1:
             correct += 1
     return correct / total if total > 0 else 0.0
 
 
-def load_messages_from_xml(file_path):
-    tree = ET.parse(file_path)
-    root = tree.getroot()
-    system_msg = root.find('system').text.strip()
-    human_msg = root.find('human').text.strip()
+def load_prompt_from_txt(file_path):
+    content = Path(file_path).read_text(encoding="utf-8")
+    system_msg, human_msg = content.split("---human---", 1)
+    system_msg = system_msg.replace("---system---", "").strip()
+    human_msg = human_msg.strip()
     return system_msg, human_msg
 
 
@@ -57,8 +71,8 @@ def build_correction_messages(system_msg, human_msg, statement, expected, receiv
         cur_prompt=cur_prompt
     )
     return [
-        SystemMessage(content=system_msg),
-        HumanMessage(content=filled_human_msg)
+        ("system", system_msg),
+        ("human", filled_human_msg)
     ]
 
 
@@ -86,6 +100,7 @@ def convert_string_to_triples(triples_string):
     result = [(s.strip(), p.strip(), o.strip()) for s, p, o in matches]
 
     return result
+
 
 def _sanitize_model_name(llm_model: str) -> str:
     """Sanitize model name to be a valid folder name."""
@@ -147,7 +162,7 @@ def main():
     PromptUtils.ensure_dir(PROMPT_DIR)
     print(PROMPT_DIR)
     PromptUtils.ensure_dir(ACCURACY_DIR)
-    system_msg, human_msg = load_messages_from_xml(CORRECTION_TEMPLATE_FILE)
+    correction_system_msg, correction_human_msg = load_prompt_from_txt(CORRECTION_TEMPLATE_FILE)
 
     # Seed or get latest prompt
     files = [f for f in os.listdir(PROMPT_DIR) if f.startswith("v_") and f.endswith(".txt")]
@@ -166,10 +181,11 @@ def main():
         system_msg = latest_prompt[0][1].format(relationships_list=relationships_list)
         latest_prompt = [("system", system_msg), latest_prompt[1]]
     else:
-        return
+        return True
 
-        # Load ground truth CSV
+    # Load ground truth CSV
     ground_truth_df = pd.read_csv(GROUND_TRUTH_FILE)
+    ground_truth_df.loc[:, 'ground_truth'] = ground_truth_df['ground_truth'].apply(convert_string_to_triples)
 
     load_dotenv()
     openai_api_key = os.getenv("OPENAI_API_KEY")
@@ -190,77 +206,106 @@ def main():
     df = get_clutrr_test_df(sample_question_indexes)
     print(f"Loaded {len(df)} CLUTRR test samples.")
 
-    # Initial accuracy eval and save
     sample = df.copy()
+    sample_index_list = sample.index.tolist()
     batch_input = [{"statement": row['story']} for _, row in sample.iterrows()]
-    print("Evaluating initial accuracy...")
+
+    # Initial accuracy calculation
+    print("Calculating initial accuracy...")
     predictions = chain.batch(
         batch_input,
-        config={
-            "max_concurrency": 3
-        }
+        config={"max_concurrency": 3}
     )
     print("Initial predictions generated.")
     predictions = [KnowledgeGraphUtils.extract_triples_from_llm_str_output(p) for p in predictions]
     print(f"Predictions converted to triples format. eg :- {predictions[:3]}")
-    ground_truth_df.loc[:, 'ground_truth'] = ground_truth_df['ground_truth'].apply(convert_string_to_triples)
 
-    prev_accuracy = calculate_accuracy(predictions, ground_truth_df["ground_truth"].tolist())
-    PromptUtils.save_accuracy(version, prev_accuracy, ACCURACY_DIR)
-    print(f"Initial accuracy for version {version}: {prev_accuracy:.2%}")
+    initial_accuracy = calculate_accuracy(predictions, ground_truth_df["ground_truth"].tolist())
+    PromptUtils.save_accuracy(version, initial_accuracy, ACCURACY_DIR)
+    print(f"Initial accuracy: {initial_accuracy:.2%}")
 
-    # for loop_count in range(MAX_LOOPS):
-    #     sample = df.sample(n=SAMPLE_SIZE, random_state=loop_count + 1)
-    #     batch_input = [(latest_prompt, row['statement']) for _, row in sample.iterrows()]
-    #     predictions = LlmUtils.batch_llm_generate(llm, batch_input)
-    #     current_accuracy = calculate_accuracy(predictions, sample["expected_answer"].tolist())
-    #     print(f"Loop {loop_count + 1}: Version {version}, Accuracy {current_accuracy:.2%}")
-    #
-    #     if current_accuracy == 1.0:
-    #         print("All results accurate. Finished!")
-    #         break
-    #
-    #     failed_idx = None
-    #     for idx, (p, g) in enumerate(zip(predictions, sample["expected_answer"])):
-    #         if p.strip().lower() != g.strip().lower():
-    #             failed_idx = idx
-    #             break
-    #
-    #     if failed_idx is None:
-    #         print("No failed cases found, stopping loop.")
-    #         break
-    #
-    #     # Prepare correction messages using XML template
-    #     correction_messages = build_correction_messages(
-    #         system_msg, human_msg,
-    #         sample.iloc[failed_idx]["statement"],
-    #         sample.iloc[failed_idx]["expected_answer"],
-    #         predictions[failed_idx],
-    #         latest_prompt
-    #     )
-    #
-    #     # Single LLM call for correction (not batch)
-    #     correction_pred = llm.invoke(correction_messages).content
-    #     refined_prompt = PromptUtils.extract_refined_prompt(correction_pred)
-    #     if not refined_prompt:
-    #         print("LLM did not return a refined prompt. Stopping.")
-    #         break
-    #
-    #     # Evaluate refined prompt accuracy (batch)
-    #     test_batch_input = [(refined_prompt, row['statement']) for _, row in sample.iterrows()]
-    #     refined_predictions = LlmUtils.batch_llm_generate(llm, test_batch_input)
-    #     refined_accuracy = calculate_accuracy(refined_predictions, sample["expected_answer"].tolist())
-    #     print(f"Refined prompt test accuracy: {refined_accuracy:.2%}")
-    #
-    #     if refined_accuracy > current_accuracy:
-    #         version += 1
-    #         PromptUtils.save_new_prompt(refined_prompt, version, PROMPT_DIR)
-    #         PromptUtils.save_accuracy(version, refined_accuracy, ACCURACY_DIR)
-    #         latest_prompt = refined_prompt
-    #         prev_accuracy = refined_accuracy
-    #         print(f"Prompt improved! Saved as prompt_v{version}.txt with accuracy {refined_accuracy:.2%}.")
-    #     else:
-    #         print("Refined prompt did not improve accuracy. Keeping previous prompt.")
+    current_accuracy = previous_accuracy = initial_accuracy
+
+    for loop_count in range(MAX_LOOPS):
+
+        if current_accuracy > previous_accuracy: # Initially, previous_accuracy = current_accuracy.
+            version += 1
+            previous_accuracy = current_accuracy
+            PromptUtils.save_new_prompt(latest_prompt, version, PROMPT_DIR)
+            PromptUtils.save_accuracy(version, current_accuracy, ACCURACY_DIR)
+            print(f"Prompt improved! Saved as prompt_v{version}.txt with accuracy {current_accuracy:.2%}.")
+        else:
+            if loop_count != 0:
+                print("Refined prompt did not improve accuracy. Keeping previous prompt.")
+
+        if current_accuracy == 1.0:
+            print("All results accurate. Finished!")
+            break
+
+        failed_idx = None
+        failed_list_idx = None
+        for idx, (p, g) in enumerate(zip(predictions, ground_truth_df["ground_truth"].tolist())):
+            if calculate_accuracy_of_one_pair(p, g) == 0:
+                failed_idx = sample_index_list[idx]
+                failed_list_idx = idx
+                break
+
+        print(f"Failed case found at index: {failed_idx}")
+        story = sample.loc[[failed_idx]]["story"].values[0]
+        print(f"sample story: {story}")
+        expected_answer = ground_truth_df[ground_truth_df['question_idx'] == failed_idx]['ground_truth'].values[0]
+        print(f"Expected answer: {expected_answer}")
+        print(f"Received answer: {predictions[failed_list_idx]}")
+
+        if failed_idx is None:
+            print("No failed cases found, stopping loop.")
+            break
+
+        # Prepare correction messages using XML template
+        correction_message = build_correction_messages(
+            correction_system_msg, correction_human_msg,
+            str(story),
+            str(expected_answer),
+            str(predictions[failed_list_idx]),
+            str(latest_prompt[0][1])
+        )
+        print(f"correction_message: {correction_message}")
+
+        # Single LLM call for correction (not batch)
+        correction_chain = get_chain(llm, ChatPromptTemplate(correction_message))
+        # correction_pred = llm.invoke(correction_message).content
+        correction_pred = correction_chain.invoke(
+            {},
+            config={"max_concurrency": 3}
+        )
+        refined_prompt = PromptUtils.extract_refined_prompt(correction_pred)
+        print(f"Refined prompt: {refined_prompt}")
+        if not refined_prompt:
+            print("LLM did not return a refined prompt. Stopping.")
+            break
+
+        # Re-create the chain with the refined prompt
+        latest_prompt = [("system", refined_prompt), ("human", latest_prompt[1][1])]
+        chain = get_chain(llm, ChatPromptTemplate(latest_prompt))
+
+        print(f"Evaluating accuracy in loop {loop_count + 1}/{MAX_LOOPS} ...")
+        predictions = chain.batch(
+            batch_input,
+            config={"max_concurrency": 3}
+        )
+        print(f"Predictions generated for loop {loop_count + 1}.")
+        predictions = [KnowledgeGraphUtils.extract_triples_from_llm_str_output(p) for p in predictions]
+        print(f"Predictions converted to triples format. eg :- {predictions[:3]}")
+
+        current_accuracy = calculate_accuracy(predictions, ground_truth_df["ground_truth"].tolist())
+        PromptUtils.save_accuracy(version, current_accuracy, ACCURACY_DIR)
+        print(f"Loop {loop_count + 1}: Version {version}, Accuracy {current_accuracy:.2%}")
+
+        # if loop_count == 1:
+        #     # For the first loop, we just print the refined prompt and break
+        #     break
+
+        print("-----------------------------------------------------------------------------")
 
 
 if __name__ == "__main__":

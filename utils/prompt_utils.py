@@ -26,6 +26,9 @@ class PromptUtils:
 
     @staticmethod
     def save_new_prompt(prompt_text, version, prompt_dir):
+        print(f"Saving new prompt version {version} to {prompt_dir}")
+        print(f"Prompt text: {prompt_text}")
+        prompt_text = "---system---\n" + prompt_text[0][1] + "\n---human---\n" + prompt_text[1][1]
         with open(os.path.join(prompt_dir, f"v_{version}.txt"), "w", encoding="utf-8") as f:
             f.write(prompt_text)
 
