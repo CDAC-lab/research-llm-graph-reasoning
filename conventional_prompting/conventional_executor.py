@@ -112,8 +112,8 @@ class ConventionalExecutor:
         list_dict_test, list_questions = self.load_questions_list(
             is_debug=self.is_debug, sample_question_indexes=self.sample_question_indexes)
         print(f"len of list_questions :- {len(list_questions)}")
-        list_questions = list_questions[:200]  # Limit to 10 questions for testing
-        list_dict_test = list_dict_test[:200]  # Limit to 10 questions for testing
+        # list_questions = list_questions[:200]  # Limit to 10 questions for testing
+        # list_dict_test = list_dict_test[:200]  # Limit to 10 questions for testing
 
         # build the chain
         set_debug(False)

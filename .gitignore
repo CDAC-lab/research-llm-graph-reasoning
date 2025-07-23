@@ -10,5 +10,5 @@
 # .idea directory is ignored
 .idea/
 # .env file is ignored
-*.env
+*.env*
 /outputs/

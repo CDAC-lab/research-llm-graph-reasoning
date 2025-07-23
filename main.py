@@ -28,5 +28,5 @@ def run_clutrr_experiment(is_debug: bool, is_conventional: bool):
 
 if __name__ == '__main__':
     is_debug = False
-    is_conventional = False
+    is_conventional = True
     run_clutrr_experiment(is_debug, is_conventional)

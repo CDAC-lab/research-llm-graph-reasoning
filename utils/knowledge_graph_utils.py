@@ -212,7 +212,8 @@ class KnowledgeGraphUtils:
             triples_part = text
 
         # 2) Only run the regex on triples_part
-        triple_pattern = r'^\(\s*([A-Za-z]+)\s*,\s*([a-z_]+)\s*,\s*([A-Za-z]+)\s*\)$'
+        # triple_pattern = r'^\(\s*([A-Za-z]+)\s*,\s*([a-z_]+)\s*,\s*([A-Za-z]+)\s*\)$'
+        triple_pattern = r'^\(\s*([\w]+)\s*,\s*([\w]+)\s*,\s*([\w]+)\s*\)$'
         graph_entries = []
         for line in triples_part.splitlines():
             line = line.strip()
